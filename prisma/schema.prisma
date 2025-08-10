@@ -2,7 +2,8 @@
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")   // pooled (runtime)
+  directUrl = env("DIRECT_URL")     // direct (for migrations)
 }
 
 generator client {
@@ -16,12 +17,14 @@ model Tenant {
   plan        String         @default("free")
   createdAt   DateTime       @default(now())
 
-  memberships Membership[]
-  users       User[]         @relation("TenantUsers")
-  programs    Program[]
-  exercises   Exercise[]
-  sessions    Session[]
-  events      EventAnalytics[]
+  memberships     Membership[]
+  programs        Program[]
+  exercises       Exercise[]
+  sessions        Session[]
+  events          EventAnalytics[]
+  programDays     ProgramDay[]
+  programExercises ProgramExercise[]
+  sets            Set[]
 }
 
 model User {
@@ -30,9 +33,12 @@ model User {
   name         String?
   createdAt    DateTime       @default(now())
 
-  memberships  Membership[]
-  sessions     Session[]
-  programs     Program[]      @relation("UserPrograms")
+  memberships      Membership[]
+  sessions         Session[]
+  programs         Program[]      @relation("UserPrograms")
+  programDays      ProgramDay[]
+  programExercises ProgramExercise[]
+  sets             Set[]
 }
 
 model Membership {
@@ -55,7 +61,8 @@ model Exercise {
   ytUrl     String?
   notes     String?
 
-  Tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  Tenant           Tenant  @relation(fields: [tenantId], references: [id])
+  programExercises ProgramExercise[]
 
   @@unique([tenantId, name])
 }
@@ -90,6 +97,7 @@ model ProgramDay {
   Tenant    Tenant?    @relation(fields: [tenantId], references: [id])
   User      User?      @relation(fields: [userId], references: [id])
   exercises ProgramExercise[]
+  sessions  Session[]
 
   @@index([tenantId, programId])
   @@index([userId, programId])
@@ -112,6 +120,7 @@ model ProgramExercise {
   User             User?         @relation(fields: [userId], references: [id])
   ProgramDay       ProgramDay    @relation(fields: [programDayId], references: [id])
   Exercise         Exercise      @relation(fields: [exerciseId], references: [id])
+  sets             Set[]
 
   @@index([tenantId, programDayId])
   @@index([userId, programDayId])
