@@ -1,14 +1,168 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// prisma/schema.prisma
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
 generator client {
   provider = "prisma-client-js"
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+model Tenant {
+  id          String         @id @default(uuid())
+  name        String
+  slug        String         @unique
+  plan        String         @default("free")
+  createdAt   DateTime       @default(now())
+
+  memberships Membership[]
+  users       User[]         @relation("TenantUsers")
+  programs    Program[]
+  exercises   Exercise[]
+  sessions    Session[]
+  events      EventAnalytics[]
+}
+
+model User {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  name         String?
+  createdAt    DateTime       @default(now())
+
+  memberships  Membership[]
+  sessions     Session[]
+  programs     Program[]      @relation("UserPrograms")
+}
+
+model Membership {
+  id        String  @id @default(uuid())
+  tenantId  String
+  userId    String
+  role      String  // "owner" | "coach" | "member"
+
+  Tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  User      User    @relation(fields: [userId], references: [id])
+
+  @@unique([tenantId, userId])
+}
+
+model Exercise {
+  id        String  @id @default(uuid())
+  tenantId  String
+  name      String
+  muscle    String?
+  ytUrl     String?
+  notes     String?
+
+  Tenant    Tenant  @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
+}
+
+model Program {
+  id        String   @id @default(uuid())
+  tenantId  String?  // Null if purely personal
+  userId    String?  // Null if tenant-wide
+  name      String
+  cadence   String   // "weekly" | "monthly" | "multi_month"
+  startDate DateTime?
+  endDate   DateTime?
+  isActive  Boolean  @default(true)
+
+  Tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+  User      User?    @relation("UserPrograms", fields: [userId], references: [id])
+  days      ProgramDay[]
+
+  @@index([tenantId, name])
+  @@index([userId, name])
+}
+
+model ProgramDay {
+  id        String     @id @default(uuid())
+  tenantId  String?
+  userId    String?
+  programId String
+  dayIndex  Int?       // weekly cadence 0..6
+  date      DateTime?  // monthly cadence
+
+  Program   Program    @relation(fields: [programId], references: [id])
+  Tenant    Tenant?    @relation(fields: [tenantId], references: [id])
+  User      User?      @relation(fields: [userId], references: [id])
+  exercises ProgramExercise[]
+
+  @@index([tenantId, programId])
+  @@index([userId, programId])
+}
+
+model ProgramExercise {
+  id               String  @id @default(uuid())
+  tenantId         String?
+  userId           String?
+  programDayId     String
+  exerciseId       String
+  order            Int
+  targetSets       Int
+  targetReps       Int
+  tempo            String?
+  restSeconds      Int?
+  notes            String?
+
+  Tenant           Tenant?       @relation(fields: [tenantId], references: [id])
+  User             User?         @relation(fields: [userId], references: [id])
+  ProgramDay       ProgramDay    @relation(fields: [programDayId], references: [id])
+  Exercise         Exercise      @relation(fields: [exerciseId], references: [id])
+
+  @@index([tenantId, programDayId])
+  @@index([userId, programDayId])
+}
+
+model Session {
+  id            String   @id @default(uuid())
+  tenantId      String?
+  userId        String
+  programDayId  String?
+  sessionDate   DateTime
+  status        String   @default("planned")
+
+  Tenant        Tenant?  @relation(fields: [tenantId], references: [id])
+  User          User     @relation(fields: [userId], references: [id])
+  ProgramDay    ProgramDay? @relation(fields: [programDayId], references: [id])
+  sets          Set[]
+
+  @@index([tenantId, userId, sessionDate])
+  @@index([userId, sessionDate])
+}
+
+model Set {
+  id                 String  @id @default(uuid())
+  tenantId           String?
+  userId             String?
+  sessionId          String
+  programExerciseId  String?
+  setIndex           Int
+  weight             Decimal?
+  reps               Int?
+  rpe                Decimal?
+
+  Tenant             Tenant?         @relation(fields: [tenantId], references: [id])
+  User               User?           @relation(fields: [userId], references: [id])
+  Session            Session         @relation(fields: [sessionId], references: [id])
+  ProgramExercise    ProgramExercise? @relation(fields: [programExerciseId], references: [id])
+
+  @@index([tenantId, sessionId])
+  @@index([userId, sessionId])
+}
+
+model EventAnalytics {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String?
+  ts        DateTime @default(now())
+  type      String
+  props     Json
+
+  Tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, type, ts])
 }
