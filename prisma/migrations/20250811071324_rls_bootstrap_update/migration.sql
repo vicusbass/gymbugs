@@ -4,20 +4,20 @@
 
 create schema if not exists app;
 
-create or replace function app.tenant_id() returns uuid
+create or replace function app.tenant_id() returns text
 language sql stable as $$
   select nullif(
     regexp_replace(current_setting('application_name', true), '.*tenant=([0-9a-fA-F-]{36}).*', '\1'),
     ''
-  )::uuid;
+  );
 $$;
 
-create or replace function app.user_id() returns uuid
+create or replace function app.user_id() returns text
 language sql stable as $$
   select nullif(
     regexp_replace(current_setting('application_name', true), '.*user=([0-9a-fA-F-]{36}).*', '\1'),
     ''
-  )::uuid;
+  );
 $$;
 
 -- PROGRAM
