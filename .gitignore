@@ -41,6 +41,8 @@ next-env.d.ts
 !.cursor/rules/
 !.cursor/rules/**
 CLAUDE.md
+shad-mcp.sh
+.mcp.json
 
 
 /generated/prisma
